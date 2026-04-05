@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+openai
+python-dotenv
+pandas
+scikit-learn
+matplotlib
+seaborn
+shap
+python-multipart

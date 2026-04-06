@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Autonomous Data Scientist</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #0f1117;
+    --surface:   #1a1d27;
+    --surface2:  #22263a;
+    --border:    #2e3250;
+    --text:      #e8eaf0;
+    --muted:     #7b82a0;
+    --accent:    #6c63ff;
+    --accent2:   #4ecdc4;
+    --success:   #43d98a;
+    --warning:   #f7b731;
+    --error:     #fc5c65;
+    --radius:    12px;
+    --radius-sm: 6px;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 2rem 1rem;
+  }
+
+  .container {
+    max-width: 860px;
+    margin: 0 auto;
+  }
+
+  /* Header */
+  .header {
+    text-align: center;
+    margin-bottom: 2.5rem;
+  }
+  .header h1 {
+    font-size: 1.9rem;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .header p {
+    color: var(--muted);
+    margin-top: 0.5rem;
+    font-size: 0.95rem;
+  }
+
+  /* Card */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.75rem;
+    margin-bottom: 1.25rem;
+  }
+  .card-title {
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin-bottom: 1rem;
+  }
+
+  /* Upload zone */
+  .upload-zone {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 2.5rem;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    position: relative;
+  }
+  .upload-zone:hover,
+  .upload-zone.drag-over {
+    border-color: var(--accent);
+    background: rgba(108, 99, 255, 0.05);
+  }
+  .upload-zone input[type="file"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+  }
+  .upload-icon {
+    width: 44px;
+    height: 44px;
+    margin: 0 auto 1rem;
+    background: rgba(108, 99, 255, 0.15);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .upload-icon svg {
+    width: 22px;
+    height: 22px;
+    stroke: var(--accent);
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .upload-label {
+    font-size: 0.95rem;
+    color: var(--text);
+    margin-bottom: 0.3rem;
+  }
+  .upload-hint {
+    font-size: 0.82rem;
+    color: var(--muted);
+  }
+  .file-selected {
+    margin-top: 0.75rem;
+    font-size: 0.85rem;
+    color: var(--success);
+    font-weight: 500;
+  }
+
+  /* Prompt input */
+  .prompt-input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-size: 0.95rem;
+    padding: 0.75rem 1rem;
+    outline: none;
+    transition: border-color 0.2s;
+    font-family: inherit;
+  }
+  .prompt-input:focus {
+    border-color: var(--accent);
+  }
+  .prompt-input::placeholder {
+    color: var(--muted);
+  }
+
+  /* Button */
+  .btn {
+    width: 100%;
+    padding: 0.85rem;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: var(--accent);
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+    font-family: inherit;
+    margin-top: 1rem;
+  }
+  .btn:hover:not(:disabled) { opacity: 0.88; }
+  .btn:active:not(:disabled) { transform: scale(0.99); }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  /* Progress */
+  .progress-section { display: none; }
+  .progress-section.visible { display: block; }
+
+  .steps {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    margin-bottom: 1.25rem;
+  }
+  .step {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.7rem 1rem;
+    background: var(--surface2);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    transition: border-color 0.3s;
+    font-size: 0.9rem;
+  }
+  .step.active  { border-color: var(--accent); }
+  .step.done    { border-color: var(--success); }
+  .step.failed  { border-color: var(--error); }
+
+  .step-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--border);
+    flex-shrink: 0;
+    transition: background 0.3s;
+  }
+  .step.active  .step-dot { background: var(--accent); animation: pulse 1s infinite; }
+  .step.done    .step-dot { background: var(--success); animation: none; }
+  .step.failed  .step-dot { background: var(--error); animation: none; }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.4; }
+  }
+
+  .step-name  { flex: 1; color: var(--text); }
+  .step-badge {
+    font-size: 0.75rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 99px;
+    font-weight: 500;
+  }
+  .step.active  .step-badge { background: rgba(108,99,255,0.2); color: var(--accent); }
+  .step.done    .step-badge { background: rgba(67,217,138,0.15); color: var(--success); }
+  .step.failed  .step-badge { background: rgba(252,92,101,0.15); color: var(--error); }
+  .step.waiting .step-badge { background: var(--surface2); color: var(--muted); }
+
+  .progress-bar-wrap {
+    height: 4px;
+    background: var(--surface2);
+    border-radius: 99px;
+    overflow: hidden;
+    margin-bottom: 0.6rem;
+  }
+  .progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    border-radius: 99px;
+    transition: width 0.5s ease;
+    width: 0%;
+  }
+  .progress-label {
+    font-size: 0.82rem;
+    color: var(--muted);
+    text-align: right;
+  }
+
+  /* Results */
+  .results-section { display: none; }
+  .results-section.visible { display: block; }
+
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+  }
+  .metric-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 1rem;
+  }
+  .metric-label {
+    font-size: 0.75rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 0.4rem;
+  }
+  .metric-value {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--accent2);
+  }
+  .metric-sub {
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin-top: 0.2rem;
+  }
+
+  .model-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .model-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.88rem;
+  }
+  .model-name {
+    width: 220px;
+    flex-shrink: 0;
+    color: var(--text);
+  }
+  .model-bar-wrap {
+    flex: 1;
+    height: 8px;
+    background: var(--surface2);
+    border-radius: 99px;
+    overflow: hidden;
+  }
+  .model-bar {
+    height: 100%;
+    border-radius: 99px;
+    background: var(--accent);
+    transition: width 0.6s ease;
+  }
+  .model-bar.best { background: linear-gradient(90deg, var(--accent), var(--accent2)); }
+  .model-score {
+    width: 46px;
+    text-align: right;
+    color: var(--muted);
+    font-size: 0.82rem;
+  }
+
+  .shap-img {
+    width: 100%;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    margin-top: 0.5rem;
+  }
+
+  .explanation-text {
+    color: var(--text);
+    font-size: 0.92rem;
+    line-height: 1.75;
+    white-space: pre-wrap;
+  }
+  .explanation-text strong { color: var(--accent2); }
+
+  .tag-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+  }
+  .tag {
+    background: rgba(108,99,255,0.15);
+    color: var(--accent);
+    border-radius: 99px;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+  }
+
+  .error-box {
+    background: rgba(252,92,101,0.1);
+    border: 1px solid var(--error);
+    border-radius: var(--radius-sm);
+    padding: 1rem;
+    color: var(--error);
+    font-size: 0.88rem;
+    font-family: monospace;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+
+  .reset-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 0.5rem 1.25rem;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 0.85rem;
+    margin-top: 1rem;
+    font-family: inherit;
+    transition: border-color 0.2s, color 0.2s;
+  }
+  .reset-btn:hover { border-color: var(--accent); color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <div class="header">
+    <h1>Autonomous Data Scientist</h1>
+    <p>Upload a CSV, describe your goal — the agents handle the rest.</p>
+  </div>
+
+  <!-- Upload form -->
+  <div id="upload-section">
+    <div class="card">
+      <div class="card-title">Dataset</div>
+      <div class="upload-zone" id="drop-zone">
+        <input type="file" id="file-input" accept=".csv"/>
+        <div class="upload-icon">
+          <svg viewBox="0 0 24 24"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3"/></svg>
+        </div>
+        <div class="upload-label">Drop your CSV here or click to browse</div>
+        <div class="upload-hint">Supports any CSV with a clear target column</div>
+        <div class="file-selected" id="file-name"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Your goal</div>
+      <input
+        type="text"
+        class="prompt-input"
+        id="prompt-input"
+        placeholder="e.g. predict customer churn, classify loan default, forecast sales"
+        maxlength="200"
+      />
+    </div>
+
+    <button class="btn" id="run-btn" disabled>Run Analysis</button>
+  </div>
+
+  <!-- Progress -->
+  <div class="progress-section" id="progress-section">
+    <div class="card">
+      <div class="card-title">Pipeline progress</div>
+      <div class="progress-bar-wrap">
+        <div class="progress-bar" id="progress-bar"></div>
+      </div>
+      <div class="progress-label" id="progress-label">Starting...</div>
+      <div class="steps" id="steps-list"></div>
+    </div>
+  </div>
+
+  <!-- Results -->
+  <div class="results-section" id="results-section"></div>
+
+</div>
+
+<script>
+const STEPS = [
+  "EDA",
+  "Cleaning",
+  "Feature Engineering",
+  "Model Training",
+  "Explanation",
+]
+
+let selectedFile = null
+let currentJobId = null
+let eventSource  = null
+
+// ------------------------------------------------------------------
+// File selection
+// ------------------------------------------------------------------
+
+const fileInput = document.getElementById("file-input")
+const dropZone  = document.getElementById("drop-zone")
+const fileName  = document.getElementById("file-name")
+const runBtn    = document.getElementById("run-btn")
+const promptEl  = document.getElementById("prompt-input")
+
+fileInput.addEventListener("change", () => handleFile(fileInput.files[0]))
+
+dropZone.addEventListener("dragover", e => {
+  e.preventDefault()
+  dropZone.classList.add("drag-over")
+})
+dropZone.addEventListener("dragleave", () => dropZone.classList.remove("drag-over"))
+dropZone.addEventListener("drop", e => {
+  e.preventDefault()
+  dropZone.classList.remove("drag-over")
+  handleFile(e.dataTransfer.files[0])
+})
+
+function handleFile(file) {
+  if (!file || !file.name.endsWith(".csv")) {
+    alert("Please upload a CSV file.")
+    return
+  }
+  selectedFile = file
+  fileName.textContent = file.name + " (" + (file.size / 1024).toFixed(1) + " KB)"
+  checkReady()
+}
+
+promptEl.addEventListener("input", checkReady)
+
+function checkReady() {
+  runBtn.disabled = !(selectedFile && promptEl.value.trim().length > 3)
+}
+
+// ------------------------------------------------------------------
+// Run pipeline
+// ------------------------------------------------------------------
+
+runBtn.addEventListener("click", async () => {
+  if (!selectedFile || !promptEl.value.trim()) return
+
+  const formData = new FormData()
+  formData.append("file", selectedFile)
+  formData.append("user_prompt", promptEl.value.trim())
+
+  // Switch to progress view
+  document.getElementById("upload-section").style.display = "none"
+  showProgress()
+
+  try {
+    const res  = await fetch("/api/analyze", { method: "POST", body: formData })
+    const data = await res.json()
+
+    if (!res.ok) {
+      showError(data.detail || "Upload failed.")
+      return
+    }
+
+    currentJobId = data.job_id
+    startStreaming(currentJobId)
+
+  } catch (err) {
+    showError("Could not reach server: " + err.message)
+  }
+})
+
+// ------------------------------------------------------------------
+// Progress UI
+// ------------------------------------------------------------------
+
+function showProgress() {
+  const section   = document.getElementById("progress-section")
+  const stepsList = document.getElementById("steps-list")
+
+  section.classList.add("visible")
+  stepsList.innerHTML = ""
+
+  STEPS.forEach(name => {
+    const el = document.createElement("div")
+    el.className   = "step waiting"
+    el.id          = "step-" + name.replace(/\s+/g, "-")
+    el.innerHTML   = `
+      <div class="step-dot"></div>
+      <div class="step-name">${name}</div>
+      <div class="step-badge">waiting</div>
+    `
+    stepsList.appendChild(el)
+  })
+
+  setProgress(0, "Starting pipeline...")
+}
+
+function setProgress(pct, label) {
+  document.getElementById("progress-bar").style.width  = pct + "%"
+  document.getElementById("progress-label").textContent = label
+}
+
+function setStepState(stepName, state) {
+  const id = "step-" + stepName.replace(/\s+/g, "-")
+  const el = document.getElementById(id)
+  if (!el) return
+  el.className = "step " + state
+  const badge  = el.querySelector(".step-badge")
+  const labels = { active: "running", done: "done", failed: "failed", waiting: "waiting" }
+  badge.textContent = labels[state] || state
+}
+
+// ------------------------------------------------------------------
+// SSE streaming
+// ------------------------------------------------------------------
+
+let doneSteps = 0
+
+function startStreaming(jobId) {
+  doneSteps   = 0
+  eventSource = new EventSource(`/api/stream/${jobId}`)
+
+  eventSource.onmessage = e => {
+    const event = JSON.parse(e.data)
+    handleEvent(event)
+  }
+
+  eventSource.onerror = () => {
+    eventSource.close()
+    // Fallback — poll result endpoint
+    setTimeout(() => pollResult(jobId), 1000)
+  }
+}
+function handleEvent(event) {
+  console.log("[SSE event]", event)   // debug — see in browser console
+  const { type, message, data, result, error } = event
+
+  if (type === "step_start") {
+    const name = data.step
+    setStepState(name, "active")
+    const idx = STEPS.indexOf(name)
+    const pct = Math.round((idx / STEPS.length) * 100)
+    setProgress(pct, `Running ${name}...`)
+  }
+
+  else if (type === "step_done") {
+    const name = data.step
+    setStepState(name, "done")
+    doneSteps++
+    const pct = Math.round((doneSteps / STEPS.length) * 100)
+    setProgress(pct, `${name} complete`)
+  }
+
+  else if (type === "done") {
+    setProgress(100, "Pipeline complete!")
+    STEPS.forEach(s => setStepState(s, "done"))
+    eventSource && eventSource.close()
+
+    // Result is inside data field — the push() call puts it there
+    const finalResult = data || result || null
+    console.log("[Done] result keys:", finalResult ? Object.keys(finalResult) : "null")
+
+    setTimeout(() => {
+      if (finalResult && Object.keys(finalResult).length > 0) {
+        showResults(finalResult)
+      } else {
+        // Fallback — fetch result directly from API
+        console.log("[Done] result empty, polling /api/result/")
+        pollResult(currentJobId)
+      }
+    }, 600)
+  }
+
+  else if (type === "failed") {
+    eventSource && eventSource.close()
+    showError(error || message)
+  }
+}
+function pollResult(jobId) {
+  fetch(`/api/result/${jobId}`)
+    .then(r => r.json())
+    .then(data => {
+      console.log("[Poll] status:", data.status, "result keys:", data.result ? Object.keys(data.result) : "null")
+      if (data.status === "done" && data.result) {
+        showResults(data.result)
+      } else if (data.status === "failed") {
+        showError(data.error || "Pipeline failed")
+      } else {
+        setTimeout(() => pollResult(jobId), 2000)
+      }
+    })
+    .catch(err => showError("Could not fetch result: " + err.message))
+}
+
+// ------------------------------------------------------------------
+// Results UI
+// ------------------------------------------------------------------
+function showResults(report) {
+  document.getElementById("progress-section").classList.remove("visible")
+  const section = document.getElementById("results-section")
+  section.classList.add("visible")
+
+  if (!report) {
+    showError("Pipeline completed but returned no results.")
+    return
+  }
+
+  const score     = report.best_score != null ? (report.best_score * 100).toFixed(1) : "—"
+  const allModels = report.all_models || []
+  const maxScore  = Math.max(...allModels.map(m => m.score || 0), 0.01)
+
+  const modelRows = allModels.map(m => {
+    const isBest = m.name === report.best_model
+    const pct    = Math.round(((m.score || 0) / maxScore) * 100)
+    return `
+      <div class="model-row">
+        <div class="model-name">${m.name}${isBest ? " ★" : ""}</div>
+        <div class="model-bar-wrap">
+          <div class="model-bar${isBest ? " best" : ""}" style="width:${pct}%"></div>
+        </div>
+        <div class="model-score">${((m.score || 0) * 100).toFixed(1)}%</div>
+      </div>`
+  }).join("")
+
+  const topFeatures = (report.top_features || [])
+    .map(f => `<span class="tag">${f}</span>`).join("")
+
+  // Build SHAP image — try api_files first, then plot_path
+  let shapImg = ""
+  const shapUrl = report.api_files?.shap_plot || null
+  if (shapUrl) {
+    shapImg = `<img class="shap-img" src="${shapUrl}" alt="SHAP feature importance"
+                    onerror="this.style.display='none'"/>`
+  }
+
+  // Render explanation — handle both plain text and markdown bold
+  const rawExplanation = report.explanation || "No explanation generated."
+  const explanation = rawExplanation
+    .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+
+  section.innerHTML = `
+
+    <!-- Metrics -->
+    <div class="card">
+      <div class="card-title">Results</div>
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <div class="metric-label">Best model</div>
+          <div class="metric-value" style="font-size:1rem;line-height:1.3">${report.best_model || "—"}</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">${report.metric || "Score"}</div>
+          <div class="metric-value">${score}%</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Task</div>
+          <div class="metric-value" style="font-size:1rem">${report.task_type || "—"}</div>
+          <div class="metric-sub">target: ${report.target_col || "—"}</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Dataset</div>
+          <div class="metric-value" style="font-size:1rem">${report.n_rows || "—"}</div>
+          <div class="metric-sub">${report.n_features || 0} features</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Model comparison -->
+    ${allModels.length > 0 ? `
+    <div class="card">
+      <div class="card-title">Model comparison</div>
+      <div class="model-list">${modelRows}</div>
+    </div>` : ""}
+
+    <!-- SHAP -->
+    <div class="card">
+      <div class="card-title">Feature importance</div>
+      <div class="tag-list">${topFeatures || "<span style='color:var(--muted)'>Not available</span>"}</div>
+      ${shapImg}
+    </div>
+
+    <!-- Explanation -->
+    <div class="card">
+      <div class="card-title">Plain english explanation</div>
+      <div class="explanation-text">${explanation}</div>
+    </div>
+
+    <button class="reset-btn" onclick="resetUI()">Run another analysis</button>
+  `
+}
+
+function showError(msg) {
+  document.getElementById("progress-section").classList.remove("visible")
+  const section = document.getElementById("results-section")
+  section.classList.add("visible")
+  section.innerHTML = `
+    <div class="card">
+      <div class="card-title">Pipeline failed</div>
+      <div class="error-box">${msg}</div>
+      <button class="reset-btn" onclick="resetUI()">Try again</button>
+    </div>`
+}
+function resetUI() {
+  selectedFile = null
+  currentJobId = null
+  if (eventSource) { eventSource.close(); eventSource = null }
+
+  const uploadSection = document.getElementById("upload-section")
+  uploadSection.style.display = "block"   // force visible
+  uploadSection.style.removeProperty("display")
+
+  document.getElementById("progress-section").classList.remove("visible")
+  document.getElementById("results-section").classList.remove("visible")
+  document.getElementById("results-section").innerHTML = ""
+  document.getElementById("steps-list").innerHTML = ""
+  document.getElementById("file-name").textContent = ""
+  document.getElementById("prompt-input").value = ""
+  document.getElementById("file-input").value = ""
+  document.getElementById("progress-bar").style.width = "0%"
+  document.getElementById("progress-label").textContent = "Starting..."
+  runBtn.disabled = true
+  doneSteps = 0
+}
+
+</script>
+</body>
+</html>

@@ -25,7 +25,7 @@ Return code only, no explanation."""
     # ------------------------------------------------------------------
     # Step 1 — decide which models to try
     # ------------------------------------------------------------------
-
+    '''
     def _plan_models(self, feature_report: dict) -> dict:
         reply = self.llm.chat_json(
             messages=[{
@@ -65,7 +65,86 @@ Rules:
             role="reason"
         )
         return reply
+    '''
+    def _plan_models(self, feature_report: dict) -> dict:
+        """Ask reasoning model to decide which models to train."""
 
+        DEFAULT_CLASSIFICATION_PLAN = {
+            "models": [
+                {"name": "LogisticRegression",     "class": "sklearn.linear_model.LogisticRegression",    "params": {"max_iter": 1000}, "reason": "linear baseline"},
+                {"name": "RandomForestClassifier", "class": "sklearn.ensemble.RandomForestClassifier",    "params": {"random_state": 42}, "reason": "handles non-linear patterns"},
+                {"name": "GradientBoostingClassifier", "class": "sklearn.ensemble.GradientBoostingClassifier", "params": {"random_state": 42}, "reason": "strong ensemble model"},
+            ],
+            "test_size":    0.2,
+            "random_state": 42,
+            "metric":       "f1",
+            "reasoning":    "Default classification plan",
+        }
+
+        DEFAULT_REGRESSION_PLAN = {
+            "models": [
+                {"name": "LinearRegression",  "class": "sklearn.linear_model.LinearRegression",  "params": {}, "reason": "linear baseline"},
+                {"name": "RandomForestRegressor", "class": "sklearn.ensemble.RandomForestRegressor", "params": {"random_state": 42}, "reason": "handles non-linear patterns"},
+                {"name": "GradientBoostingRegressor", "class": "sklearn.ensemble.GradientBoostingRegressor", "params": {"random_state": 42}, "reason": "strong ensemble model"},
+            ],
+            "test_size":    0.2,
+            "random_state": 42,
+            "metric":       "r2",
+            "reasoning":    "Default regression plan",
+        }
+
+        default = (DEFAULT_CLASSIFICATION_PLAN
+                if feature_report["task_type"] == "classification"
+                else DEFAULT_REGRESSION_PLAN)
+
+        try:
+            reply = self.llm.chat_json(
+                messages=[{
+                    "role": "user",
+                    "content": f"""You are selecting ML models for a pipeline.
+
+    TASK:       {feature_report['task_type']}
+    FEATURES:   {feature_report['feature_cols']}
+    TARGET:     {feature_report['target_col']}
+    N ROWS:     {feature_report['n_rows']}
+    N FEATURES: {len(feature_report['feature_cols'])}
+
+    Select 3 appropriate sklearn models and return JSON only:
+    {{
+    "models": [
+        {{
+        "name": "LogisticRegression",
+        "class": "sklearn.linear_model.LogisticRegression",
+        "params": {{"max_iter": 1000}},
+        "reason": "good baseline"
+        }}
+    ],
+    "test_size": 0.2,
+    "random_state": 42,
+    "metric": "f1",
+    "reasoning": "why these models"
+    }}
+
+    Rules:
+    - Always include a linear baseline and RandomForest
+    - For small datasets avoid heavy models
+    - metric: f1 or accuracy for classification, r2 or rmse for regression
+    - Return valid JSON only, no explanation"""
+                }],
+                role="reason"
+            )
+
+            # Validate reply has required keys
+            if not reply or not isinstance(reply, dict):
+                raise ValueError("Empty or non-dict reply")
+            if "models" not in reply or not reply["models"]:
+                raise ValueError("No models in plan")
+
+            return reply
+
+        except Exception as e:
+            print(f"[ModelAgent] Plan parsing failed: {e} — using default plan")
+            return default
     # ------------------------------------------------------------------
     # Step 2 — generate training code
     # ------------------------------------------------------------------
@@ -111,9 +190,15 @@ REQUIRED STEPS IN ORDER:
 8. Print: BEST_MODEL: <name>
 9. Print: BEST_SCORE: <score>
 10. Save best model: joblib.dump(best_model, best_model_path)
-11. Print final comparison as valid JSON on one line:
-    RESULTS_JSON: {{"models": [{{"name": "...", "score": 0.0}}, ...], "best": "...", "metric": "..."}}
-
+11. Build results dict and print using json.dumps — NEVER use f-strings for JSON:
+    import json
+    results_dict = {{
+        "models": [{{"name": name, "score": round(score, 6)}} for name, score in model_scores.items()],
+        "best": best_model_name,
+        "metric": "{plan.get('metric', 'accuracy')}"
+    }}
+    print("RESULTS_JSON:", json.dumps(results_dict))
+    
 Code only, no explanation."""
             }],
             role="code"
@@ -146,26 +231,47 @@ Code only, no explanation."""
     # ------------------------------------------------------------------
     # Step 4 — fix broken code
     # ------------------------------------------------------------------
-
     def _fix_training_code(self, original_code: str, error: str) -> str:
+        target_hint = ""
+        if "continuous" in error and "classifier" in error:
+            target_hint = """
+    SPECIFIC FIX: Add y = y.astype(int) right after loading y."""
+
+        fstring_hint = ""
+        if "backslash" in error or "f-string" in error:
+            fstring_hint = """
+    SPECIFIC FIX: You used backslashes inside an f-string expression — illegal in Python.
+    To print RESULTS_JSON never use nested f-strings.
+    Instead do this:
+        import json
+        results_dict = {
+            "models": [{"name": n, "score": s} for n, s in scores.items()],
+            "best": best_name,
+            "metric": "accuracy"
+        }
+        print("RESULTS_JSON:", json.dumps(results_dict))
+    """
+
         reply = self.llm.chat(
             messages=[{
                 "role": "user",
                 "content": f"""This ML training code failed. Fix it.
+    {target_hint}
+    {fstring_hint}
+    CRITICAL RULES:
+    - Load using variable:       features_path   (already defined)
+    - Save model using variable: best_model_path (already defined)
+    - Must print: RESULTS_JSON: {{...}} using json.dumps, never manual f-strings
+    - Never hardcode any file paths
+    - For classification: always cast y = y.astype(int) after loading
 
-CRITICAL RULES:
-- Load using variable:       features_path   (already defined)
-- Save model using variable: best_model_path (already defined)
-- Must print: RESULTS_JSON: {{...}} on one line at the end
-- Never hardcode any file paths
+    ORIGINAL CODE:
+    {original_code}
 
-ORIGINAL CODE:
-{original_code}
+    ERROR:
+    {error}
 
-ERROR:
-{error}
-
-Return only the fixed Python code, no explanation."""
+    Return only the fixed Python code, no explanation."""
             }],
             role="code"
         )

@@ -147,7 +147,7 @@ class LLMClient:
             f"All providers failed. Last error: {last_error}\n"
             "Check GROQ_API_KEY and OPENROUTER_API_KEY in your .env"
         )
-
+    '''
     def chat_json(
         self,
         messages: list,
@@ -171,7 +171,48 @@ class LLMClient:
             return json.loads(cleaned.strip())
         except json.JSONDecodeError as e:
             print(f"[LLMClient] JSON parse error: {e}\nRaw output:\n{raw}")
-            
+    '''
+    def chat_json(
+        self,
+        messages: list,
+        role: str = "code",
+        system: str | None = None,
+    ) -> dict | None:
+        """
+        Same as chat() but parses the response as JSON.
+        Returns None if parsing fails — caller must handle.
+        """
+        try:
+            raw = self.chat(messages, role=role, system=system)
+
+            cleaned = raw.strip()
+            if cleaned.startswith("```"):
+                parts   = cleaned.split("```")
+                cleaned = parts[1]
+                if cleaned.startswith("json"):
+                    cleaned = cleaned[4:]
+
+            # Try json.loads first
+            try:
+                return json.loads(cleaned.strip())
+            except json.JSONDecodeError:
+                pass
+
+            # Fallback — ast.literal_eval for single-quoted dicts
+            import ast
+            try:
+                parsed = ast.literal_eval(cleaned.strip())
+                if isinstance(parsed, dict):
+                    return parsed
+            except (ValueError, SyntaxError):
+                pass
+
+            print(f"[LLMClient] chat_json parse failed. Raw:\n{raw[:300]}")
+            return None
+
+        except Exception as e:
+            print(f"[LLMClient] chat_json error: {e}")
+            return None      
           
     def extract_code(self, text: str) -> str:
       """Extract code from markdown fences. Returns plain code string."""

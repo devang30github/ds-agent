@@ -186,6 +186,15 @@ Return only the fixed Python code, no explanation."""
         # Step 1 — plan
         print("[FeatureAgent] Planning features...")
         plan = self._plan_features(report)
+        if not plan:
+            print("[FeatureAgent] Plan failed — using defaults")
+            plan = {
+                "encode_categoricals": report.get("categorical_cols", []),
+                "scale_numerics":      [c for c in report.get("numeric_cols", []) if c != report["target_col"]],
+                "create_interactions": [],
+                "drop_cols":           [],
+                "reasoning":           "Default plan due to LLM parse failure",
+            }
         print(f"[FeatureAgent] Plan: {plan.get('reasoning', '')}")
         print(f"[FeatureAgent] Encode: {plan.get('encode_categoricals', [])}")
         print(f"[FeatureAgent] Scale:  {plan.get('scale_numerics', [])}")
